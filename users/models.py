@@ -23,18 +23,26 @@ class CustomUser(BaseModel,AbstractUser):
     (VIA_PHONE, VIA_PHONE)
     )
     AUTH_STATUS = (
+    (NEW, NEW),
+    (CODE_VERIFIED, CODE_VERIFIED),
+    (DONE, DONE),
+    (PHOTO_DONE, PHOTO_DONE),
 
     )
+    username = models.CharField(max_length=150,unique=True,blank=True,null=True)
     auth_type = models.CharField(max_length=31, choices=AUTH_TYPE)
     user_role = models.CharField(max_length=31,choices=USER_ROLE,default=ORDINARY_USER)
     auth_status =  models.CharField(max_length=31,choices=AUTH_STATUS,default=NEW)
     email = models.EmailField(unique=True,blank=True,null=True)
-    phone_number = models.CharField(max_length=13,unique=True,blank=True,null=True)
+    phone = models.CharField(max_length=13,unique=True,blank=True,null=True)
     photo = models.ImageField(upload_to="users_photos/",blank=True,null=True,validators = [FileExtensionValidator(allowed_extensions =['jpg','jpeg','png'])])
+
     def __str__(self):
         return self.username
 
     def create_verify_code(self,verify_type):
+        if not self.pk:
+            self.save()
         code = random.randint(1000,9999)
         CodeVerified.objects.create(
             code = code,
@@ -42,15 +50,17 @@ class CustomUser(BaseModel,AbstractUser):
             verify_type = verify_type
 
         )
+        return code
 
     def check_username(self):
         if not self.username:
             self.username =f"ins{uuid.uuid4().__str__().split('-')[-1]}"
-            while CustomUser.objects.filter(email = self.email).exists():
+            while CustomUser.objects.filter(username=self.username).exists():
                 self.username = f"{self.username + str(random.randint(0,100))}"
 
     def check_email(self):
-        self.email = self.lower()
+        if self.email:
+            self.email = self.email.lower()
 
     def check_pass(self):
         if not self.password:
@@ -94,4 +104,4 @@ class CodeVerified(BaseModel):
             self.expiration_time = datetime.now() + timedelta(minutes=EXPIRATION_EMAIL)
         else:
             self.expiration_time = datetime.now() + timedelta(minutes=EXPIRATION_PHONE)
-            super(CodeVerified,self).save(*args,**kvargs)
+        super(CodeVerified,self).save(*args,**kvargs)
